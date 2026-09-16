@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<link rel="manifest" href="./manifest.json">
 <title>BadHab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,19 +12,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
-  // ====== CONFIGURAÇÃO DO FIREBASE ======
-  // Cole aqui as credenciais do SEU projeto Firebase (console.firebase.google.com).
-  // Enquanto estiver com os valores de exemplo, o app funciona só localmente (sem login).
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyApeDVUvImU9TWOxP4cIGI-HoSsD7SlpU4",
-  authDomain: "badhab-4fa6c.firebaseapp.com",
-  projectId: "badhab-4fa6c",
-  storageBucket: "badhab-4fa6c.firebasestorage.app",
-  messagingSenderId: "1059796611685",
-  appId: "1:1059796611685:web:b625aabe028043252ccc8c",
-  measurementId: "G-W98J41DM1G"
-};
+  window.FIREBASE_CONFIG = {
+    apiKey: "AIzaSyApeDVUvImU9TWOxP4cIGI-HoSsD7SlpU4",
+    authDomain: "badhab-4fa6c.firebaseapp.com",
+    projectId: "badhab-4fa6c",
+    storageBucket: "badhab-4fa6c.firebasestorage.app",
+    messagingSenderId: "1059796611685",
+    appId: "1:1059796611685:web:b625aabe028043252ccc8c",
+    measurementId: "G-W98J41DM1G"
+  };
 </script>
 <style>
   :root {
@@ -78,7 +75,6 @@ window.FIREBASE_CONFIG = {
     padding-bottom: 60px;
   }
 
-  /* sticky top bar with the overall score */
   .topbar {
     position: sticky;
     top: 0;
@@ -212,7 +208,6 @@ window.FIREBASE_CONFIG = {
   .section-title { font-size: 13px; font-weight: 600; color: var(--text-dim); margin: 0 0 10px; }
   .chart-empty { color: var(--text-faint); font-size: 12.5px; padding: 14px 0; text-align: center; }
 
-  /* carousel of groups */
   .carousel {
     display: flex;
     overflow-x: auto;
@@ -287,25 +282,6 @@ window.FIREBASE_CONFIG = {
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
   .dot.active { background: var(--danger); }
 
-  .backup-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-  }
-  .backup-link {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 0;
-    color: var(--text-dim);
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .backup-link:active { color: var(--text); }
-
   .reset-link {
     display: block; width: 100%;
     background: none; border: none;
@@ -317,7 +293,6 @@ window.FIREBASE_CONFIG = {
   }
   .reset-link:active { color: var(--danger); }
 
-  /* modal */
   .overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.55);
@@ -388,11 +363,6 @@ window.FIREBASE_CONFIG = {
   <div class="content">
     <div class="carousel" id="carousel"></div>
     <div class="dots" id="dots" style="display:none;"></div>
-    <div class="backup-row">
-      <button class="backup-link" id="exportBtn">Exportar dados</button>
-      <button class="backup-link" id="importBtn">Importar dados</button>
-    </div>
-    <input type="file" id="importFile" accept="application/json" style="display:none;">
     <button class="reset-link" id="resetBtn">Reiniciar tudo</button>
   </div>
 
@@ -456,8 +426,8 @@ window.FIREBASE_CONFIG = {
 (function(){
   const WEEK_MS = 7*24*60*60*1000;
   const MAX_HABITS_PER_GROUP = 10;
-  let fsDb = null;      // firestore instance, or null if Firebase não configurado
-  let auth = null;      // firebase auth instance
+  let fsDb = null;
+  let auth = null;
   let currentUser = null;
   let firebaseReady = false;
   let state = null;
@@ -466,8 +436,8 @@ window.FIREBASE_CONFIG = {
   let pendingHabitGroupId = null;
   let pendingWeight = null;
 
-  let pendingGroupHabit = null; // {sigla, detalhes, weight} to add once the new group is created, or null for a plain new group
-  let renamingGroupId = null; // set when the group modal is being used to rename an existing group
+  let pendingGroupHabit = null;
+  let renamingGroupId = null;
 
   const $ = (id) => document.getElementById(id);
   const uid = () => Math.random().toString(36).slice(2,10);
@@ -538,7 +508,6 @@ window.FIREBASE_CONFIG = {
     if(loaded && Array.isArray(loaded.groups) && loaded.groups.length){
       state = loaded;
     } else if(loaded && Array.isArray(loaded.habits)){
-      // migrate old single-group format
       state = { groups: [ { id: uid(), name: '', habits: loaded.habits, log: loaded.log||[], cycleStart: loaded.cycleStart||Date.now() } ] };
     } else {
       state = freshState();
@@ -546,7 +515,6 @@ window.FIREBASE_CONFIG = {
     activeGroupId = state.groups[0].id;
     state.groups.forEach(g=> migrateHabits(g.habits));
     checkWeeklyReset();
-    // se acabou de logar e a nuvem ainda não tem nada, sobe o que já existia localmente
     if(currentUser && fsDb){
       try {
         const snap = await userDocRef().get();
@@ -591,8 +559,6 @@ window.FIREBASE_CONFIG = {
     state.groups.push(g);
     return g;
   }
-
-  // ---------- rendering ----------
 
   function render(){
     $('topScore').textContent = overallAllGroups();
@@ -652,7 +618,6 @@ window.FIREBASE_CONFIG = {
         panel.querySelector('.group-name-btn').addEventListener('click', ()=> openRenameModal(g.id, label));
       }
 
-      // habit list
       const listEl = panel.querySelector('.habit-list');
       g.habits.forEach(h=>{
         const row = document.createElement('div');
@@ -672,7 +637,6 @@ window.FIREBASE_CONFIG = {
         listEl.appendChild(row);
       });
 
-      // weekly cycle sub text
       if(g.habits.length){
         const daysLeft = Math.max(0, 7 - Math.floor((Date.now()-g.cycleStart)/(24*60*60*1000)));
         panel.querySelector('.overview-sub').textContent = `ciclo semanal · reinicia em ${daysLeft} ${daysLeft===1?'dia':'dias'}`;
@@ -684,20 +648,17 @@ window.FIREBASE_CONFIG = {
         }
       }
 
-      // charts
       if(g.log.length){
         panel.querySelector('.weekly-chart').appendChild(buildLineChart(groupAverages(g.log, isoWeekKey, 8)));
         panel.querySelector('.monthly-chart').appendChild(buildLineChart(groupAverages(g.log, monthKey, 6)));
       }
 
-      // wire add-habit control
       const addBtn = panel.querySelector('.add-habit-btn');
       addBtn.addEventListener('click', ()=> openHabitModal(g.id));
 
       carousel.appendChild(panel);
     });
 
-    // trailing "add group" panel
     const addPanel = document.createElement('div');
     addPanel.className = 'add-group-panel';
     addPanel.innerHTML = `
@@ -710,7 +671,6 @@ window.FIREBASE_CONFIG = {
     carousel.appendChild(addPanel);
     $('addGroupTile') && $('addGroupTile').addEventListener('click', ()=> openGroupModal(null));
 
-    // dots
     const dots = $('dots');
     const totalScreens = state.groups.length + 1;
     if(totalScreens > 1){
@@ -725,7 +685,6 @@ window.FIREBASE_CONFIG = {
       dots.style.display = 'none';
     }
 
-    // restore scroll position to activeGroupId
     requestAnimationFrame(()=>{
       const idx = state.groups.findIndex(g=>g.id===activeGroupId);
       const targetIdx = idx>=0 ? idx : 0;
@@ -868,8 +827,6 @@ window.FIREBASE_CONFIG = {
     return svg;
   }
 
-  // ---------- habit modal (sigla + detalhes + peso) ----------
-
   function openHabitModal(gid){
     pendingHabitGroupId = gid;
     pendingWeight = null;
@@ -915,8 +872,6 @@ window.FIREBASE_CONFIG = {
   });
   $('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeHabitModal(); });
 
-  // ---------- detail modal ----------
-
   function openDetailModal(h){
     $('detailSigla').textContent = habitLabel(h);
     $('detailText').textContent = habitDetail(h) || 'Sem detalhes cadastrados.';
@@ -924,8 +879,6 @@ window.FIREBASE_CONFIG = {
   }
   $('detailClose').addEventListener('click', ()=> $('detailOverlay').classList.remove('open'));
   $('detailOverlay').addEventListener('click', (e)=>{ if(e.target.id==='detailOverlay') $('detailOverlay').classList.remove('open'); });
-
-  // ---------- group modal ----------
 
   function openGroupModal(habitPending){
     renamingGroupId = null;
@@ -986,82 +939,6 @@ window.FIREBASE_CONFIG = {
     closeGroupModal();
   });
 
-  // ---------- exportar / importar ----------
-
-  $('exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `badhab-backup-${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  $('importBtn').addEventListener('click', ()=> $('importFile').click());
-  $('importFile').addEventListener('change', (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-      try {
-        const parsed = JSON.parse(reader.result);
-        if(!parsed || !Array.isArray(parsed.groups) || !parsed.groups.length) throw new Error('formato inválido');
-        state = parsed;
-        activeGroupId = state.groups[0].id;
-        state.groups.forEach(g=> migrateHabits(g.habits));
-        saveState();
-      } catch(err){
-        alert('Não foi possível importar esse arquivo. Verifique se é um backup exportado pelo BadHab.');
-      }
-      e.target.value = '';
-    };
-    reader.readAsText(file);
-  });
-
-  // ---------- backup (export / import) ----------
-
-  $('exportBtn').addEventListener('click', ()=>{
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const stamp = new Date().toISOString().slice(0,10);
-    a.download = `badhab-backup-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  $('importBtn').addEventListener('click', ()=> $('importFile').click());
-  $('importFile').addEventListener('change', (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        if(!parsed || !Array.isArray(parsed.groups) || !parsed.groups.length){
-          alert('Arquivo inválido: não parece um backup do BadHab.');
-          return;
-        }
-        parsed.groups.forEach(g=> migrateHabits(g.habits));
-        state = parsed;
-        activeGroupId = state.groups[0].id;
-        saveState();
-      } catch(err){
-        alert('Não consegui ler esse arquivo. Verifique se é um backup exportado do BadHab.');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
-
-  // ---------- reset ----------
-
   $('resetBtn').addEventListener('click', ()=> $('resetOverlay').classList.add('open'));
   $('resetCancel').addEventListener('click', ()=> $('resetOverlay').classList.remove('open'));
   $('resetOverlay').addEventListener('click', (e)=>{ if(e.target.id==='resetOverlay') $('resetOverlay').classList.remove('open'); });
@@ -1071,8 +948,6 @@ window.FIREBASE_CONFIG = {
     $('resetOverlay').classList.remove('open');
     saveState();
   });
-
-  // ---------- autenticação (Google, via Firebase) ----------
 
   function renderAuthUI(){
     const row = $('authRow');
@@ -1101,7 +976,6 @@ window.FIREBASE_CONFIG = {
     }
   });
 
-  // ---------- boot ----------
   (function boot(){
     const cfg = window.FIREBASE_CONFIG || {};
     const configured = cfg.apiKey && cfg.apiKey !== 'SUA_API_KEY';
@@ -1130,6 +1004,11 @@ window.FIREBASE_CONFIG = {
   })();
 
 })();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  }
 </script>
 </body>
 </html>

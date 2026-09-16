@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BadHab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  // ====== CONFIGURAÇÃO DO FIREBASE ======
+  // Cole aqui as credenciais do SEU projeto Firebase (console.firebase.google.com).
+  // Enquanto estiver com os valores de exemplo, o app funciona só localmente (sem login).
+  window.FIREBASE_CONFIG = {
+    apiKey: "SUA_API_KEY",
+    authDomain: "seu-projeto.firebaseapp.com",
+    projectId: "seu-projeto",
+    storageBucket: "seu-projeto.appspot.com",
+    messagingSenderId: "SEU_SENDER_ID",
+    appId: "SEU_APP_ID"
+  };
+</script>
+<style>
+  :root {
+    --bg: #121316;
+    --surface: #1B1D22;
+    --surface-2: #24262C;
+    --border: #33353C;
+    --text: #EDEEF1;
+    --text-dim: #93969E;
+    --text-faint: #5D5F67;
+    --danger: #E5484D;
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F3F0;
+    --surface: #FFFFFF;
+    --surface-2: #ECEBE7;
+    --border: #DDDBD5;
+    --text: #1B1C1E;
+    --text-dim: #6B6D74;
+    --text-faint: #A5A7AD;
+    --danger: #C4302B;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F4F3F0;
+      --surface: #FFFFFF;
+      --surface-2: #ECEBE7;
+      --border: #DDDBD5;
+      --text: #1B1C1E;
+      --text-dim: #6B6D74;
+      --text-faint: #A5A7AD;
+      --danger: #C4302B;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  .app {
+    width: 100%;
+    max-width: 440px;
+    padding-bottom: 60px;
+  }
+
+  /* sticky top bar with the overall score */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding: 20px 16px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .wordmark {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .wordmark span.hab { color: var(--danger); }
+  .topbar-score {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+  }
+  .topbar-score .label {
+    font-size: 10.5px;
+    color: var(--text-dim);
+  }
+  .topbar-score .value {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 30px;
+    line-height: 1;
+  }
+
+  .content { padding: 18px 16px 0; }
+
+  .auth-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .auth-status { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-btn {
+    flex-shrink: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+
+  .add-title { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+  .add-row { display: flex; gap: 8px; }
+  .add-row input {
+    flex: 1; min-width: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+  }
+  .add-row input::placeholder { color: var(--text-faint); }
+  .add-row input:focus { outline: 2px solid var(--danger); outline-offset: -1px; }
+
+  .plus-btn {
+    flex-shrink: 0;
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    border: none;
+    background: var(--danger);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .plus-btn:active { transform: scale(0.96); }
+  .plus-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  .empty-hint { color: var(--text-faint); font-size: 13px; margin-top: 10px; }
+
+  .habit-list { display: flex; flex-direction: column; gap: 8px; }
+  .habit-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .habit-info { flex: 1; min-width: 0; }
+  .habit-name { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .habit-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
+  .habit-score-chip { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 20px; min-width: 34px; text-align: right; }
+  .thumb-btn {
+    flex-shrink: 0; width: 40px; height: 40px;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thumb-btn:active { background: var(--danger); border-color: var(--danger); }
+
+  .overview-card { text-align: center; }
+  .overview-label { font-size: 12px; color: var(--text-dim); margin-bottom: 2px; }
+  .overview-score { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 44px; line-height: 1; margin-bottom: 10px; }
+  .overview-sub { font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+  svg.shape-svg { max-width: 240px; width: 100%; height: auto; }
+  .vertex-label { font-size: 9.5px; fill: var(--text-dim); font-family: 'Space Grotesk', sans-serif; }
+  .vertex-sigla { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; font-weight: 700; }
+  .vertex-score { font-size: 10.5px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+  .habit-name-btn { background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; display: block; }
+
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text-dim); margin: 0 0 10px; }
+  .chart-empty { color: var(--text-faint); font-size: 12.5px; padding: 14px 0; text-align: center; }
+
+  /* carousel of groups */
+  .carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .carousel::-webkit-scrollbar { display: none; }
+  .group-panel {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    min-width: 100%;
+  }
+  .group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 0 2px;
+  }
+  .group-name-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .group-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+  .group-name-btn .edit-icon {
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .group-count { font-size: 11.5px; color: var(--text-faint); }
+
+  .add-group-panel {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    min-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .add-group-tile {
+    width: 100%;
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    padding: 34px 18px;
+    text-align: center;
+    background: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .add-group-tile .plus-icon { font-size: 28px; display: block; margin-bottom: 8px; color: var(--danger); }
+  .add-group-tile .title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+  .add-group-tile .sub { font-size: 12px; margin-top: 4px; }
+
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin: 10px 0 4px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .dot.active { background: var(--danger); }
+
+  .backup-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .backup-link {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 0;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .backup-link:active { color: var(--text); }
+
+  .reset-link {
+    display: block; width: 100%;
+    background: none; border: none;
+    color: var(--text-faint);
+    font-family: inherit; font-size: 12.5px;
+    text-decoration: underline; text-underline-offset: 3px;
+    cursor: pointer; padding: 14px 0 0;
+    text-align: center;
+  }
+  .reset-link:active { color: var(--danger); }
+
+  /* modal */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none; align-items: flex-end; justify-content: center;
+    z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 22px 20px 26px;
+    width: 100%; max-width: 440px;
+  }
+  .modal h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal p { margin: 0 0 16px; font-size: 12.5px; color: var(--text-dim); }
+  .modal p.warning { color: var(--danger); font-size: 13px; font-weight: 600; }
+  .weight-options { display: flex; gap: 8px; margin-bottom: 20px; }
+  .weight-opt {
+    flex: 1; padding: 12px 0; text-align: center;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text);
+    font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .weight-opt.selected { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .modal input[type="text"] {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    margin-bottom: 18px;
+  }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button {
+    flex: 1; padding: 12px 0; border-radius: 10px; border: 1px solid var(--border);
+    font-family: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+  }
+  .btn-cancel { background: transparent; color: var(--text-dim); }
+  .btn-ok { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn-ok:disabled { opacity: 0.4; }
+  .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .habit-row, .plus-btn { transition: transform 0.12s ease; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="wordmark">Bad<span class="hab">Hab</span></div>
+    <div class="topbar-score">
+      <span class="label">geral</span>
+      <span class="value" id="topScore">100</span>
+    </div>
+  </div>
+
+  <div class="auth-row" id="authRow" style="display:none;">
+    <span class="auth-status" id="authStatus"></span>
+    <button class="auth-btn" id="authBtn">Entrar com Google</button>
+  </div>
+
+  <div class="content">
+    <div class="carousel" id="carousel"></div>
+    <div class="dots" id="dots" style="display:none;"></div>
+    <div class="backup-row">
+      <button class="backup-link" id="exportBtn">Exportar dados</button>
+      <button class="backup-link" id="importBtn">Importar dados</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+    <button class="reset-link" id="resetBtn">Reiniciar tudo</button>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>Novo mal hábito</h3>
+    <p>Uma sigla curta para o gráfico e, se quiser, um detalhe do que ela significa.</p>
+    <input type="text" id="habitSiglaInput" placeholder="Sigla (ex: TAB, PROCR)" maxlength="8">
+    <input type="text" id="habitDetalhesInput" placeholder="Detalhes (ex: fumar no intervalo do trabalho)" maxlength="80">
+    <p style="margin:0 0 8px; font-size:12.5px; color:var(--text-dim);">Peso: de 1 (leve) a 5 (grave)</p>
+    <div class="weight-options" id="weightOptions">
+      <button class="weight-opt" data-w="1">1</button>
+      <button class="weight-opt" data-w="2">2</button>
+      <button class="weight-opt" data-w="3">3</button>
+      <button class="weight-opt" data-w="4">4</button>
+      <button class="weight-opt" data-w="5">5</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modalCancel">Cancelar</button>
+      <button class="btn-ok" id="modalOk" disabled>OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="detailOverlay">
+  <div class="modal">
+    <h3 id="detailSigla">Sigla</h3>
+    <p id="detailText" style="font-size:14px; color:var(--text);">Detalhes</p>
+    <div class="modal-actions">
+      <button class="btn-ok" id="detailClose" style="flex:1;">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="groupOverlay">
+  <div class="modal">
+    <h3 id="groupModalTitle">Criar grupo</h3>
+    <p id="groupModalDesc">Dê um nome para o grupo (ex: psicológico, treino, alimentação).</p>
+    <input type="text" id="groupNameInput" placeholder="Nome do grupo" maxlength="24">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="groupCancel">Cancelar</button>
+      <button class="btn-ok" id="groupOk" disabled>Criar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="resetOverlay">
+  <div class="modal">
+    <h3>Reiniciar tudo?</h3>
+    <p class="warning">Isso apaga todos os grupos, hábitos, pontuações e o histórico dos gráficos. Não tem como desfazer.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="resetCancel">Cancelar</button>
+      <button class="btn-ok btn-danger" id="resetConfirm">Sim, reiniciar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const WEEK_MS = 7*24*60*60*1000;
+  const MAX_HABITS_PER_GROUP = 10;
+  let fsDb = null;      // firestore instance, or null if Firebase não configurado
+  let auth = null;      // firebase auth instance
+  let currentUser = null;
+  let firebaseReady = false;
+  let state = null;
+  let activeGroupId = null;
+
+  let pendingHabitGroupId = null;
+  let pendingWeight = null;
+
+  let pendingGroupHabit = null; // {sigla, detalhes, weight} to add once the new group is created, or null for a plain new group
+  let renamingGroupId = null; // set when the group modal is being used to rename an existing group
+
+  const $ = (id) => document.getElementById(id);
+  const uid = () => Math.random().toString(36).slice(2,10);
+
+  function freshState(){
+    return { groups: [ { id: uid(), name: '', habits: [], log: [], cycleStart: Date.now() } ] };
+  }
+
+  function colorForScore(score){
+    const clamped = Math.max(0, Math.min(100, score));
+    const hue = (clamped/100) * 130;
+    return `hsl(${hue}, 70%, 46%)`;
+  }
+
+  function weightedOverall(habits){
+    if(!habits || habits.length===0) return 100;
+    let num=0, den=0;
+    habits.forEach(h=>{ num += h.score*h.weight; den += h.weight; });
+    return den ? Math.round(num/den) : 100;
+  }
+
+  function overallAllGroups(){
+    if(!state.groups.length) return 100;
+    if(state.groups.length===1) return weightedOverall(state.groups[0].habits);
+    const scores = state.groups.map(g=>weightedOverall(g.habits));
+    return Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+  }
+
+  function checkWeeklyReset(){
+    const now = Date.now();
+    state.groups.forEach(g=>{
+      if(now - g.cycleStart >= WEEK_MS && g.habits.length>0){
+        g.habits.forEach(h=> h.score = 100);
+        g.cycleStart = now;
+      }
+    });
+  }
+
+  function habitLabel(h){ return h.sigla || h.name || '?'; }
+  function habitDetail(h){ return h.detalhes || ''; }
+
+  function migrateHabits(habits){
+    (habits||[]).forEach(h=>{
+      if(!h.sigla){ h.sigla = h.name || '?'; }
+      if(typeof h.detalhes !== 'string'){ h.detalhes = h.name && h.name!==h.sigla ? h.name : ''; }
+    });
+    return habits;
+  }
+
+  function userDocRef(){
+    return fsDb.collection('badhab_users').doc(currentUser.uid);
+  }
+
+  async function loadState(){
+    let loaded = null;
+    if(currentUser && fsDb){
+      try {
+        const snap = await userDocRef().get();
+        if(snap.exists) loaded = snap.data();
+      } catch(e){ console.error('BadHab: falha ao ler do Firestore', e); }
+    }
+    if(!loaded){
+      try {
+        const raw = localStorage.getItem('badhab_state');
+        if(raw) loaded = JSON.parse(raw);
+      } catch(e){}
+    }
+    if(loaded && Array.isArray(loaded.groups) && loaded.groups.length){
+      state = loaded;
+    } else if(loaded && Array.isArray(loaded.habits)){
+      // migrate old single-group format
+      state = { groups: [ { id: uid(), name: '', habits: loaded.habits, log: loaded.log||[], cycleStart: loaded.cycleStart||Date.now() } ] };
+    } else {
+      state = freshState();
+    }
+    activeGroupId = state.groups[0].id;
+    state.groups.forEach(g=> migrateHabits(g.habits));
+    checkWeeklyReset();
+    // se acabou de logar e a nuvem ainda não tem nada, sobe o que já existia localmente
+    if(currentUser && fsDb){
+      try {
+        const snap = await userDocRef().get();
+        if(!snap.exists) await userDocRef().set(state);
+      } catch(e){ console.error('BadHab: falha ao sincronizar com o Firestore', e); }
+    }
+    render();
+  }
+
+  async function saveState(){
+    checkWeeklyReset();
+    try { localStorage.setItem('badhab_state', JSON.stringify(state)); } catch(e){}
+    if(currentUser && fsDb){
+      try { await userDocRef().set(state); } catch(e){ console.error('BadHab: falha ao salvar no Firestore', e); }
+    }
+    render();
+  }
+
+  function getGroup(gid){ return state.groups.find(g=>g.id===gid); }
+
+  function addHabitToGroup(gid, sigla, detalhes, weight){
+    const g = getGroup(gid);
+    if(!g) return;
+    g.habits.push({ id: uid(), sigla, detalhes: detalhes||'', weight, score: 100, count: 0 });
+    saveState();
+  }
+
+  function hitHabit(gid, hid){
+    const g = getGroup(gid);
+    if(!g) return;
+    const h = g.habits.find(x=>x.id===hid);
+    if(!h) return;
+    h.score = Math.max(0, h.score - h.weight);
+    h.count += 1;
+    g.log.push({ ts: Date.now(), overall: weightedOverall(g.habits) });
+    if(g.log.length>1000) g.log.shift();
+    saveState();
+  }
+
+  function createGroup(name){
+    const g = { id: uid(), name: name.trim(), habits: [], log: [], cycleStart: Date.now() };
+    state.groups.push(g);
+    return g;
+  }
+
+  // ---------- rendering ----------
+
+  function render(){
+    $('topScore').textContent = overallAllGroups();
+    $('topScore').style.color = colorForScore(overallAllGroups());
+    renderCarousel();
+  }
+
+  function escapeXml(s){
+    return s.replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+  }
+  function escapeHtml(s){ return escapeXml(s); }
+
+  function renderCarousel(){
+    const carousel = $('carousel');
+    const multi = state.groups.length > 1;
+    carousel.innerHTML = '';
+
+    state.groups.forEach((g, idx)=>{
+      const panel = document.createElement('div');
+      panel.className = 'group-panel';
+      panel.dataset.gid = g.id;
+
+      const label = g.name ? g.name : (multi ? `Grupo ${idx+1}` : '');
+      const headerHtml = multi ? `
+        <div class="group-header">
+          <button class="group-name-btn" data-gid="${g.id}">
+            <span class="group-name"></span>
+            <span class="edit-icon">✎</span>
+          </button>
+          <div class="group-count">${g.habits.length}/${MAX_HABITS_PER_GROUP}</div>
+        </div>` : '';
+
+      panel.innerHTML = `
+        ${headerHtml}
+        <div class="card">
+          <p class="add-title">Adicione um mal hábito</p>
+          <button class="plus-btn add-habit-btn" aria-label="Adicionar hábito" style="width:100%; border-radius:10px;">+</button>
+          <div class="empty-hint" style="${g.habits.length? 'display:none;':''}">Toque em + para adicionar um mal hábito.</div>
+        </div>
+        <div class="habit-list"></div>
+        <div class="card overview-card" style="${g.habits.length? '':'display:none;'} margin-top:16px;">
+          <div class="overview-label">${multi ? 'nota do grupo' : 'pontuação geral'}</div>
+          <div class="overview-score" style="color:${colorForScore(weightedOverall(g.habits))}">${weightedOverall(g.habits)}</div>
+          <div class="shape-container"></div>
+          <div class="overview-sub"></div>
+        </div>
+        <div class="card charts-card" style="${g.log.length? '':'display:none;'}">
+          <p class="section-title">Média semanal</p>
+          <div class="weekly-chart"></div>
+          <p class="section-title" style="margin-top:18px;">Média mensal</p>
+          <div class="monthly-chart"></div>
+        </div>
+      `;
+
+      if(multi){
+        panel.querySelector('.group-name').textContent = label;
+        panel.querySelector('.group-name-btn').addEventListener('click', ()=> openRenameModal(g.id, label));
+      }
+
+      // habit list
+      const listEl = panel.querySelector('.habit-list');
+      g.habits.forEach(h=>{
+        const row = document.createElement('div');
+        row.className = 'habit-row';
+        const detalhes = h.detalhes || '';
+        row.innerHTML = `
+          <div class="habit-info">
+            <button class="habit-name-btn"><span class="habit-name"></span></button>
+            <div class="habit-meta">${detalhes ? escapeHtml(detalhes)+' · ' : ''}peso ${h.weight} · ${h.count} ${h.count===1?'ocorrência':'ocorrências'}</div>
+          </div>
+          <div class="habit-score-chip" style="color:${colorForScore(h.score)}">${h.score}</div>
+          <button class="thumb-btn" aria-label="Registrar ocorrência">👎</button>
+        `;
+        row.querySelector('.habit-name').textContent = habitLabel(h);
+        if(detalhes) row.querySelector('.habit-name-btn').addEventListener('click', ()=> openDetailModal(h));
+        row.querySelector('.thumb-btn').addEventListener('click', ()=> hitHabit(g.id, h.id));
+        listEl.appendChild(row);
+      });
+
+      // weekly cycle sub text
+      if(g.habits.length){
+        const daysLeft = Math.max(0, 7 - Math.floor((Date.now()-g.cycleStart)/(24*60*60*1000)));
+        panel.querySelector('.overview-sub').textContent = `ciclo semanal · reinicia em ${daysLeft} ${daysLeft===1?'dia':'dias'}`;
+        const shapeContainer = panel.querySelector('.shape-container');
+        if(g.habits.length<=2){
+          shapeContainer.appendChild(buildCircle(weightedOverall(g.habits)));
+        } else {
+          shapeContainer.appendChild(buildPolygon(g.habits));
+        }
+      }
+
+      // charts
+      if(g.log.length){
+        panel.querySelector('.weekly-chart').appendChild(buildLineChart(groupAverages(g.log, isoWeekKey, 8)));
+        panel.querySelector('.monthly-chart').appendChild(buildLineChart(groupAverages(g.log, monthKey, 6)));
+      }
+
+      // wire add-habit control
+      const addBtn = panel.querySelector('.add-habit-btn');
+      addBtn.addEventListener('click', ()=> openHabitModal(g.id));
+
+      carousel.appendChild(panel);
+    });
+
+    // trailing "add group" panel
+    const addPanel = document.createElement('div');
+    addPanel.className = 'add-group-panel';
+    addPanel.innerHTML = `
+      <button class="add-group-tile" id="addGroupTile">
+        <span class="plus-icon">+</span>
+        <span class="title">Criar grupo</span>
+        <span class="sub">Organize seus hábitos por categoria (ex: psicológico, treino, alimentação)</span>
+      </button>
+    `;
+    carousel.appendChild(addPanel);
+    $('addGroupTile') && $('addGroupTile').addEventListener('click', ()=> openGroupModal(null));
+
+    // dots
+    const dots = $('dots');
+    const totalScreens = state.groups.length + 1;
+    if(totalScreens > 1){
+      dots.style.display = 'flex';
+      dots.innerHTML = '';
+      for(let i=0;i<totalScreens;i++){
+        const d = document.createElement('div');
+        d.className = 'dot';
+        dots.appendChild(d);
+      }
+    } else {
+      dots.style.display = 'none';
+    }
+
+    // restore scroll position to activeGroupId
+    requestAnimationFrame(()=>{
+      const idx = state.groups.findIndex(g=>g.id===activeGroupId);
+      const targetIdx = idx>=0 ? idx : 0;
+      carousel.scrollTo({ left: targetIdx * carousel.clientWidth, behavior: 'auto' });
+      updateDots();
+    });
+  }
+
+  function updateDots(){
+    const carousel = $('carousel');
+    const dots = $('dots');
+    if(!dots || dots.style.display==='none') return;
+    const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+    Array.from(dots.children).forEach((d,i)=> d.classList.toggle('active', i===idx));
+    if(idx < state.groups.length) activeGroupId = state.groups[idx].id;
+  }
+
+  $('carousel').addEventListener('scroll', ()=>{
+    window.requestAnimationFrame(updateDots);
+  });
+
+  function buildCircle(score){
+    const size=200, cx=size/2, cy=size/2, r=70;
+    const color = colorForScore(score);
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+    svg.classList.add('shape-svg');
+    svg.innerHTML = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" opacity="0.85"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="2"/>
+    `;
+    return svg;
+  }
+
+  function buildPolygon(habits){
+    const n = habits.length;
+    const size = 260, cx = size/2, cy = size/2, maxR = 92;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+    svg.classList.add('shape-svg');
+
+    let gridHTML = '';
+    [0.25,0.5,0.75,1].forEach(frac=>{
+      const pts = [];
+      for(let i=0;i<n;i++){
+        const ang = -Math.PI/2 + i*(2*Math.PI/n);
+        pts.push(`${cx+Math.cos(ang)*maxR*frac},${cy+Math.sin(ang)*maxR*frac}`);
+      }
+      gridHTML += `<polygon points="${pts.join(' ')}" fill="none" stroke="var(--border)" stroke-width="1"/>`;
+    });
+
+    let axesHTML='';
+    for(let i=0;i<n;i++){
+      const ang = -Math.PI/2 + i*(2*Math.PI/n);
+      axesHTML += `<line x1="${cx}" y1="${cy}" x2="${cx+Math.cos(ang)*maxR}" y2="${cy+Math.sin(ang)*maxR}" stroke="var(--border)" stroke-width="1"/>`;
+    }
+
+    const dataPts = habits.map((h,i)=>{
+      const ang = -Math.PI/2 + i*(2*Math.PI/n);
+      const r = (h.score/100)*maxR;
+      return { x: cx+Math.cos(ang)*r, y: cy+Math.sin(ang)*r, ang, h };
+    });
+    const dataPolyStr = dataPts.map(p=>`${p.x},${p.y}`).join(' ');
+    const overallColor = colorForScore(weightedOverall(habits));
+
+    let dotsHTML=''; let labelsHTML='';
+    dataPts.forEach((p)=>{
+      const h = p.h;
+      dotsHTML += `<circle cx="${p.x}" cy="${p.y}" r="5" fill="${colorForScore(h.score)}" stroke="var(--surface)" stroke-width="1.5"/>`;
+      const lx = cx + Math.cos(p.ang)*(maxR+22);
+      const ly = cy + Math.sin(p.ang)*(maxR+22);
+      const anchor = Math.abs(Math.cos(p.ang))<0.2 ? 'middle' : (Math.cos(p.ang)>0?'start':'end');
+      const sigla = habitLabel(h);
+      const siglaShort = sigla.length>10 ? sigla.slice(0,9)+'…' : sigla;
+      labelsHTML += `<text x="${lx}" y="${ly-4}" text-anchor="${anchor}" class="vertex-label vertex-sigla" data-hid="${h.id}">${escapeXml(siglaShort)}</text>`;
+      labelsHTML += `<text x="${lx}" y="${ly+9}" text-anchor="${anchor}" class="vertex-score" fill="${colorForScore(h.score)}">${h.score}</text>`;
+    });
+
+    svg.innerHTML = `${gridHTML}${axesHTML}<polygon points="${dataPolyStr}" fill="${overallColor}" fill-opacity="0.28" stroke="${overallColor}" stroke-width="2"/>${dotsHTML}${labelsHTML}`;
+    dataPts.forEach(p=>{
+      const el = svg.querySelector(`.vertex-sigla[data-hid="${p.h.id}"]`);
+      if(el && habitDetail(p.h)){ el.addEventListener('click', ()=> openDetailModal(p.h)); }
+    });
+    return svg;
+  }
+
+  function isoWeekKey(ts){
+    const d = new Date(ts);
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 3 - ((d.getDay()+6)%7));
+    const week1 = new Date(d.getFullYear(),0,4);
+    const weekNo = 1 + Math.round(((d-week1)/86400000 - 3 + ((week1.getDay()+6)%7))/7);
+    return `${d.getFullYear()}-W${weekNo}`;
+  }
+  function monthKey(ts){
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  function groupAverages(log, keyFn, limit){
+    const buckets = {}; const order = [];
+    log.forEach(entry=>{
+      const k = keyFn(entry.ts);
+      if(!buckets[k]){ buckets[k]=[]; order.push(k); }
+      buckets[k].push(entry.overall);
+    });
+    const keys = order.slice(-limit);
+    return keys.map(k=>{
+      const vals = buckets[k];
+      const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+      return { label: k, value: avg };
+    });
+  }
+
+  function buildLineChart(points){
+    if(points.length===0){
+      const div = document.createElement('div');
+      div.className = 'chart-empty';
+      div.textContent = 'Ainda sem dados suficientes.';
+      return div;
+    }
+    const w = 380, h = 110, padL=28, padR=10, padT=14, padB=18;
+    const innerW = w-padL-padR, innerH = h-padT-padB;
+    const n = points.length;
+    const xFor = i => n===1 ? padL+innerW/2 : padL + (i/(n-1))*innerW;
+    const yFor = v => padT + innerH - (v/100)*innerH;
+
+    let gridHTML='';
+    [0,50,100].forEach(v=>{
+      gridHTML += `<line x1="${padL}" y1="${yFor(v)}" x2="${w-padR}" y2="${yFor(v)}" stroke="var(--border)" stroke-width="1"/>`;
+      gridHTML += `<text x="2" y="${yFor(v)+3}" class="vertex-label">${v}</text>`;
+    });
+    const linePts = points.map((p,i)=>`${xFor(i)},${yFor(p.value)}`).join(' ');
+    let dotsHTML='';
+    points.forEach((p,i)=>{ dotsHTML += `<circle cx="${xFor(i)}" cy="${yFor(p.value)}" r="3.5" fill="${colorForScore(p.value)}"/>`; });
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.style.width = '100%'; svg.style.height = 'auto';
+    svg.innerHTML = `${gridHTML}<polyline points="${linePts}" fill="none" stroke="var(--text-dim)" stroke-width="2"/>${dotsHTML}`;
+    return svg;
+  }
+
+  // ---------- habit modal (sigla + detalhes + peso) ----------
+
+  function openHabitModal(gid){
+    pendingHabitGroupId = gid;
+    pendingWeight = null;
+    $('habitSiglaInput').value = '';
+    $('habitDetalhesInput').value = '';
+    document.querySelectorAll('.weight-opt').forEach(b=>b.classList.remove('selected'));
+    $('modalOk').disabled = true;
+    $('overlay').classList.add('open');
+    setTimeout(()=> $('habitSiglaInput').focus(), 50);
+  }
+  function closeHabitModal(){
+    $('overlay').classList.remove('open');
+    pendingHabitGroupId = null; pendingWeight = null;
+  }
+  function updateHabitModalOk(){
+    $('modalOk').disabled = !($('habitSiglaInput').value.trim() && pendingWeight);
+  }
+  $('habitSiglaInput').addEventListener('input', updateHabitModalOk);
+
+  document.querySelectorAll('.weight-opt').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.weight-opt').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      pendingWeight = parseInt(btn.dataset.w,10);
+      updateHabitModalOk();
+    });
+  });
+  $('modalCancel').addEventListener('click', closeHabitModal);
+  $('modalOk').addEventListener('click', ()=>{
+    const sigla = $('habitSiglaInput').value.trim();
+    const detalhes = $('habitDetalhesInput').value.trim();
+    if(!pendingHabitGroupId || !sigla || !pendingWeight) return;
+    const g = getGroup(pendingHabitGroupId);
+    if(g && g.habits.length >= MAX_HABITS_PER_GROUP){
+      const weight = pendingWeight;
+      closeHabitModal();
+      pendingGroupHabit = { sigla, detalhes, weight };
+      openGroupModal(pendingGroupHabit);
+      return;
+    }
+    addHabitToGroup(pendingHabitGroupId, sigla, detalhes, pendingWeight);
+    closeHabitModal();
+  });
+  $('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeHabitModal(); });
+
+  // ---------- detail modal ----------
+
+  function openDetailModal(h){
+    $('detailSigla').textContent = habitLabel(h);
+    $('detailText').textContent = habitDetail(h) || 'Sem detalhes cadastrados.';
+    $('detailOverlay').classList.add('open');
+  }
+  $('detailClose').addEventListener('click', ()=> $('detailOverlay').classList.remove('open'));
+  $('detailOverlay').addEventListener('click', (e)=>{ if(e.target.id==='detailOverlay') $('detailOverlay').classList.remove('open'); });
+
+  // ---------- group modal ----------
+
+  function openGroupModal(habitPending){
+    renamingGroupId = null;
+    pendingGroupHabit = habitPending || null;
+    $('groupNameInput').value = '';
+    $('groupOk').disabled = true;
+    if(pendingGroupHabit){
+      $('groupModalTitle').textContent = 'Limite de 10 hábitos atingido';
+      $('groupModalDesc').textContent = `Esse grupo já tem ${MAX_HABITS_PER_GROUP} hábitos. Para adicionar "${pendingGroupHabit.sigla}", crie um novo grupo (ex: psicológico, treino, alimentação).`;
+      $('groupOk').textContent = 'Criar e adicionar';
+    } else {
+      $('groupModalTitle').textContent = 'Criar grupo';
+      $('groupModalDesc').textContent = 'Dê um nome para o grupo (ex: psicológico, treino, alimentação).';
+      $('groupOk').textContent = 'Criar';
+    }
+    $('groupOverlay').classList.add('open');
+    setTimeout(()=> $('groupNameInput').focus(), 50);
+  }
+  function openRenameModal(gid, currentLabel){
+    renamingGroupId = gid;
+    pendingGroupHabit = null;
+    $('groupModalTitle').textContent = 'Renomear grupo';
+    $('groupModalDesc').textContent = 'Escolha um novo nome para esse grupo.';
+    $('groupNameInput').value = currentLabel && /^Grupo \d+$/.test(currentLabel) ? '' : (currentLabel||'');
+    $('groupOk').disabled = $('groupNameInput').value.trim().length===0;
+    $('groupOk').textContent = 'Salvar';
+    $('groupOverlay').classList.add('open');
+    setTimeout(()=> $('groupNameInput').focus(), 50);
+  }
+  function closeGroupModal(){
+    $('groupOverlay').classList.remove('open');
+    pendingGroupHabit = null;
+    renamingGroupId = null;
+  }
+  $('groupNameInput').addEventListener('input', ()=>{
+    $('groupOk').disabled = $('groupNameInput').value.trim().length===0;
+  });
+  $('groupNameInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !$('groupOk').disabled) $('groupOk').click(); });
+  $('groupCancel').addEventListener('click', closeGroupModal);
+  $('groupOverlay').addEventListener('click', (e)=>{ if(e.target.id==='groupOverlay') closeGroupModal(); });
+  $('groupOk').addEventListener('click', ()=>{
+    const name = $('groupNameInput').value.trim();
+    if(!name) return;
+    if(renamingGroupId){
+      const g = getGroup(renamingGroupId);
+      if(g) g.name = name;
+      closeGroupModal();
+      saveState();
+      return;
+    }
+    const newGroup = createGroup(name);
+    activeGroupId = newGroup.id;
+    if(pendingGroupHabit){
+      addHabitToGroup(newGroup.id, pendingGroupHabit.sigla, pendingGroupHabit.detalhes, pendingGroupHabit.weight);
+    } else {
+      saveState();
+    }
+    closeGroupModal();
+  });
+
+  // ---------- exportar / importar ----------
+
+  $('exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `badhab-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  $('importBtn').addEventListener('click', ()=> $('importFile').click());
+  $('importFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try {
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.groups) || !parsed.groups.length) throw new Error('formato inválido');
+        state = parsed;
+        activeGroupId = state.groups[0].id;
+        state.groups.forEach(g=> migrateHabits(g.habits));
+        saveState();
+      } catch(err){
+        alert('Não foi possível importar esse arquivo. Verifique se é um backup exportado pelo BadHab.');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  // ---------- backup (export / import) ----------
+
+  $('exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0,10);
+    a.download = `badhab-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  $('importBtn').addEventListener('click', ()=> $('importFile').click());
+  $('importFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if(!parsed || !Array.isArray(parsed.groups) || !parsed.groups.length){
+          alert('Arquivo inválido: não parece um backup do BadHab.');
+          return;
+        }
+        parsed.groups.forEach(g=> migrateHabits(g.habits));
+        state = parsed;
+        activeGroupId = state.groups[0].id;
+        saveState();
+      } catch(err){
+        alert('Não consegui ler esse arquivo. Verifique se é um backup exportado do BadHab.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ---------- reset ----------
+
+  $('resetBtn').addEventListener('click', ()=> $('resetOverlay').classList.add('open'));
+  $('resetCancel').addEventListener('click', ()=> $('resetOverlay').classList.remove('open'));
+  $('resetOverlay').addEventListener('click', (e)=>{ if(e.target.id==='resetOverlay') $('resetOverlay').classList.remove('open'); });
+  $('resetConfirm').addEventListener('click', ()=>{
+    state = freshState();
+    activeGroupId = state.groups[0].id;
+    $('resetOverlay').classList.remove('open');
+    saveState();
+  });
+
+  // ---------- autenticação (Google, via Firebase) ----------
+
+  function renderAuthUI(){
+    const row = $('authRow');
+    if(!firebaseReady){ row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    if(currentUser){
+      $('authStatus').textContent = `Sincronizado como ${currentUser.displayName || currentUser.email}`;
+      $('authBtn').textContent = 'Sair';
+    } else {
+      $('authStatus').textContent = 'Dados salvos só neste navegador';
+      $('authBtn').textContent = 'Entrar com Google';
+    }
+  }
+
+  $('authBtn').addEventListener('click', async ()=>{
+    if(!firebaseReady) return;
+    if(currentUser){
+      await auth.signOut();
+    } else {
+      try {
+        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+      } catch(e){
+        console.error('BadHab: falha no login com Google', e);
+        alert('Não consegui abrir o login com o Google. Verifique se pop-ups estão liberados para este site.');
+      }
+    }
+  });
+
+  // ---------- boot ----------
+  (function boot(){
+    const cfg = window.FIREBASE_CONFIG || {};
+    const configured = cfg.apiKey && cfg.apiKey !== 'SUA_API_KEY';
+    if(configured && window.firebase){
+      try {
+        firebase.initializeApp(cfg);
+        auth = firebase.auth();
+        fsDb = firebase.firestore();
+        firebaseReady = true;
+        auth.onAuthStateChanged(async (user)=>{
+          currentUser = user;
+          renderAuthUI();
+          await loadState();
+        });
+      } catch(e){
+        console.error('BadHab: falha ao iniciar o Firebase', e);
+        firebaseReady = false;
+        renderAuthUI();
+        loadState();
+      }
+    } else {
+      firebaseReady = false;
+      renderAuthUI();
+      loadState();
+    }
+  })();
+
+})();
+</script>
+</body>
+</html>

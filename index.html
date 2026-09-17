@@ -991,10 +991,10 @@
       await auth.signOut();
     } else {
       try {
-        await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+        await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
       } catch(e){
         console.error('BadHab: falha no login com Google', e);
-        alert('Não consegui abrir o login com o Google. Verifique se pop-ups estão liberados para este site.');
+        alert('Não consegui iniciar o login com o Google.');
       }
     }
   });
@@ -1008,6 +1008,7 @@
         auth = firebase.auth();
         fsDb = firebase.firestore();
         firebaseReady = true;
+        auth.getRedirectResult().catch((e)=> console.error('BadHab: falha ao concluir login', e));
         auth.onAuthStateChanged(async (user)=>{
           currentUser = user;
           renderAuthUI();

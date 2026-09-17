@@ -1,4 +1,4 @@
-const CACHE_NAME = 'badhab-cache-v1';
+const CACHE_NAME = 'badhab-cache-v2';
 const CORE_ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -17,21 +17,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Só cacheia GET do mesmo site; deixa Firebase/Google e tudo mais passar direto pela rede
+// Rede primeiro: sempre busca a versão mais nova quando online.
+// Só usa o cache como reserva se a rede falhar (offline).
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => cached);
-    })
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });

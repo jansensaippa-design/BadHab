@@ -989,12 +989,19 @@
     if(!firebaseReady) return;
     if(currentUser){
       await auth.signOut();
-    } else {
-      try {
-        await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
-      } catch(e){
-        console.error('BadHab: falha no login com Google', e);
-        alert('Não consegui iniciar o login com o Google.');
+      return;
+    }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      await auth.signInWithPopup(provider);
+    } catch(e){
+      console.error('BadHab: popup falhou', e);
+      const code = e && e.code;
+      if(code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request' || code === 'auth/operation-not-supported-in-this-environment'){
+        try { await auth.signInWithRedirect(provider); }
+        catch(e2){ console.error('BadHab: redirect também falhou', e2); alert('Não consegui iniciar o login com o Google.'); }
+      } else if(code !== 'auth/popup-closed-by-user'){
+        alert('Não consegui concluir o login com o Google (' + (code || 'erro desconhecido') + ').');
       }
     }
   });
@@ -1008,7 +1015,15 @@
         auth = firebase.auth();
         fsDb = firebase.firestore();
         firebaseReady = true;
-        auth.getRedirectResult().catch((e)=> console.error('BadHab: falha ao concluir login', e));
+        auth.getRedirectResult().then((result)=>{
+          if(result && result.user){
+            console.log('BadHab: login via redirect concluído', result.user.uid);
+          }
+        }).catch((e)=>{
+          console.error('BadHab: falha ao concluir login', e);
+          renderAuthUI();
+          $('authStatus').textContent = 'Erro no login: ' + (e && e.code ? e.code : (e && e.message) || 'desconhecido');
+        });
         auth.onAuthStateChanged(async (user)=>{
           currentUser = user;
           renderAuthUI();

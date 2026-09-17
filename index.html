@@ -183,7 +183,26 @@
     padding: 10px 12px;
   }
   .habit-info { flex: 1; min-width: 0; }
-  .habit-name { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .habit-name { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .habit-name-line { display: flex; align-items: center; gap: 6px; }
+  .info-btn {
+    flex-shrink: 0;
+    width: 17px; height: 17px;
+    border-radius: 50%;
+    border: 1px solid var(--text-faint);
+    background: none;
+    color: var(--text-faint);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .info-btn:active { color: var(--text); border-color: var(--text); }
   .habit-meta { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; }
   .habit-score-chip { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 20px; min-width: 34px; text-align: right; }
   .thumb-btn {
@@ -203,8 +222,6 @@
   .vertex-label { font-size: 9.5px; fill: var(--text-dim); font-family: 'Space Grotesk', sans-serif; }
   .vertex-sigla { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; font-weight: 700; }
   .vertex-score { font-size: 10.5px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
-  .habit-name-btn { background: none; border: none; padding: 0; text-align: left; cursor: pointer; font-family: inherit; display: block; }
-
   .section-title { font-size: 13px; font-weight: 600; color: var(--text-dim); margin: 0 0 10px; }
   .chart-empty { color: var(--text-faint); font-size: 12.5px; padding: 14px 0; text-align: center; }
 
@@ -625,14 +642,20 @@
         const detalhes = h.detalhes || '';
         row.innerHTML = `
           <div class="habit-info">
-            <button class="habit-name-btn"><span class="habit-name"></span></button>
-            <div class="habit-meta">${detalhes ? escapeHtml(detalhes)+' · ' : ''}peso ${h.weight} · ${h.count} ${h.count===1?'ocorrência':'ocorrências'}</div>
+            <div class="habit-name-line">
+              <span class="habit-name"></span>
+              ${detalhes ? '<button class="info-btn" aria-label="Ver detalhes">i</button>' : ''}
+            </div>
+            <div class="habit-meta">peso ${h.weight} · ${h.count} ${h.count===1?'ocorrência':'ocorrências'}</div>
           </div>
           <div class="habit-score-chip" style="color:${colorForScore(h.score)}">${h.score}</div>
           <button class="thumb-btn" aria-label="Registrar ocorrência">👎</button>
         `;
         row.querySelector('.habit-name').textContent = habitLabel(h);
-        if(detalhes) row.querySelector('.habit-name-btn').addEventListener('click', ()=> openDetailModal(h));
+        if(detalhes){
+          const infoBtn = row.querySelector('.info-btn');
+          if(infoBtn) infoBtn.addEventListener('click', ()=> openDetailModal(h));
+        }
         row.querySelector('.thumb-btn').addEventListener('click', ()=> hitHabit(g.id, h.id));
         listEl.appendChild(row);
       });

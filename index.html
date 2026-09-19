@@ -406,12 +406,35 @@
   </div>
 </div>
 
-<div class="overlay" id="detailOverlay">
+<div class="overlay" id="editOverlay">
   <div class="modal">
-    <h3 id="detailSigla">Sigla</h3>
-    <p id="detailText" style="font-size:14px; color:var(--text);">Detalhes</p>
+    <h3>Editar hábito</h3>
+    <p>Ajuste a sigla, os detalhes ou o peso.</p>
+    <input type="text" id="editSiglaInput" placeholder="Sigla (ex: TAB, PROCR)" maxlength="8">
+    <input type="text" id="editDetalhesInput" placeholder="Detalhes (ex: fumar no intervalo do trabalho)" maxlength="80">
+    <p style="margin:0 0 8px; font-size:12.5px; color:var(--text-dim);">Peso: de 1 (leve) a 5 (grave)</p>
+    <div class="weight-options" id="editWeightOptions">
+      <button class="weight-opt" data-w="1">1</button>
+      <button class="weight-opt" data-w="2">2</button>
+      <button class="weight-opt" data-w="3">3</button>
+      <button class="weight-opt" data-w="4">4</button>
+      <button class="weight-opt" data-w="5">5</button>
+    </div>
     <div class="modal-actions">
-      <button class="btn-ok" id="detailClose" style="flex:1;">Fechar</button>
+      <button class="btn-cancel" id="editCancel">Cancelar</button>
+      <button class="btn-ok" id="editSave">Salvar</button>
+    </div>
+    <button class="reset-link" id="editDeleteBtn" style="color:var(--danger); padding-top:16px;">Excluir hábito</button>
+  </div>
+</div>
+
+<div class="overlay" id="deleteHabitOverlay">
+  <div class="modal">
+    <h3>Excluir hábito?</h3>
+    <p class="warning" id="deleteHabitWarning">Esse indicador vai sair da sua conta, junto com o histórico dele nos gráficos. Não tem como desfazer.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="deleteHabitCancel">Cancelar</button>
+      <button class="btn-ok btn-danger" id="deleteHabitConfirm">Sim, excluir</button>
     </div>
   </div>
 </div>
@@ -566,7 +589,7 @@
     if(!h) return;
     h.score = Math.max(0, h.score - h.weight);
     h.count += 1;
-    g.log.push({ ts: Date.now(), overall: weightedOverall(g.habits) });
+    g.log.push({ ts: Date.now(), entries: g.habits.map(x=>({ id: x.id, score: x.score, weight: x.weight })) });
     if(g.log.length>1000) g.log.shift();
     saveState();
   }
@@ -644,7 +667,7 @@
           <div class="habit-info">
             <div class="habit-name-line">
               <span class="habit-name"></span>
-              ${detalhes ? '<button class="info-btn" aria-label="Ver detalhes">i</button>' : ''}
+              <button class="info-btn" aria-label="Editar hábito">✎</button>
             </div>
             <div class="habit-meta">peso ${h.weight} · ${h.count} ${h.count===1?'ocorrência':'ocorrências'}</div>
           </div>
@@ -652,10 +675,7 @@
           <button class="thumb-btn" aria-label="Registrar ocorrência">👎</button>
         `;
         row.querySelector('.habit-name').textContent = habitLabel(h);
-        if(detalhes){
-          const infoBtn = row.querySelector('.info-btn');
-          if(infoBtn) infoBtn.addEventListener('click', ()=> openDetailModal(h));
-        }
+        row.querySelector('.info-btn').addEventListener('click', ()=> openEditHabitModal(g.id, h));
         row.querySelector('.thumb-btn').addEventListener('click', ()=> hitHabit(g.id, h.id));
         listEl.appendChild(row);
       });
@@ -667,13 +687,13 @@
         if(g.habits.length<=2){
           shapeContainer.appendChild(buildCircle(weightedOverall(g.habits)));
         } else {
-          shapeContainer.appendChild(buildPolygon(g.habits));
+          shapeContainer.appendChild(buildPolygon(g.habits, g.id));
         }
       }
 
       if(g.log.length){
-        panel.querySelector('.weekly-chart').appendChild(buildLineChart(groupAverages(g.log, isoWeekKey, 8)));
-        panel.querySelector('.monthly-chart').appendChild(buildLineChart(groupAverages(g.log, monthKey, 6)));
+        panel.querySelector('.weekly-chart').appendChild(buildLineChart(groupAverages(g.log, g.habits, isoWeekKey, 8)));
+        panel.querySelector('.monthly-chart').appendChild(buildLineChart(groupAverages(g.log, g.habits, monthKey, 6)));
       }
 
       const addBtn = panel.querySelector('.add-habit-btn');
@@ -742,7 +762,7 @@
     return svg;
   }
 
-  function buildPolygon(habits){
+  function buildPolygon(habits, gid){
     const n = habits.length;
     const size = 260, cx = size/2, cy = size/2, maxR = 92;
     const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -789,7 +809,7 @@
     svg.innerHTML = `${gridHTML}${axesHTML}<polygon points="${dataPolyStr}" fill="${overallColor}" fill-opacity="0.28" stroke="${overallColor}" stroke-width="2"/>${dotsHTML}${labelsHTML}`;
     dataPts.forEach(p=>{
       const el = svg.querySelector(`.vertex-sigla[data-hid="${p.h.id}"]`);
-      if(el && habitDetail(p.h)){ el.addEventListener('click', ()=> openDetailModal(p.h)); }
+      if(el){ el.addEventListener('click', ()=> openEditHabitModal(gid, p.h)); }
     });
     return svg;
   }
@@ -806,12 +826,25 @@
     const d = new Date(ts);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   }
-  function groupAverages(log, keyFn, limit){
+  function entryOverall(entry, habits){
+    if(Array.isArray(entry.entries)){
+      const present = entry.entries.filter(e => habits.some(h=>h.id===e.id));
+      if(!present.length) return null;
+      let num=0, den=0;
+      present.forEach(e=>{ num += e.score*e.weight; den += e.weight; });
+      return den ? Math.round(num/den) : null;
+    }
+    return typeof entry.overall === 'number' ? entry.overall : null; // registros antigos, sem detalhamento
+  }
+
+  function groupAverages(log, habits, keyFn, limit){
     const buckets = {}; const order = [];
     log.forEach(entry=>{
+      const val = entryOverall(entry, habits);
+      if(val===null) return;
       const k = keyFn(entry.ts);
       if(!buckets[k]){ buckets[k]=[]; order.push(k); }
-      buckets[k].push(entry.overall);
+      buckets[k].push(val);
     });
     const keys = order.slice(-limit);
     return keys.map(k=>{
@@ -895,13 +928,69 @@
   });
   $('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeHabitModal(); });
 
-  function openDetailModal(h){
-    $('detailSigla').textContent = habitLabel(h);
-    $('detailText').textContent = habitDetail(h) || 'Sem detalhes cadastrados.';
-    $('detailOverlay').classList.add('open');
+  // ---------- edit / delete habit ----------
+
+  let editingGroupId = null;
+  let editingHabitId = null;
+  let editPendingWeight = null;
+
+  function openEditHabitModal(gid, h){
+    editingGroupId = gid;
+    editingHabitId = h.id;
+    editPendingWeight = h.weight;
+    $('editSiglaInput').value = habitLabel(h);
+    $('editDetalhesInput').value = habitDetail(h);
+    document.querySelectorAll('#editWeightOptions .weight-opt').forEach(b=>{
+      b.classList.toggle('selected', parseInt(b.dataset.w,10)===h.weight);
+    });
+    $('editSave').disabled = false;
+    $('editOverlay').classList.add('open');
   }
-  $('detailClose').addEventListener('click', ()=> $('detailOverlay').classList.remove('open'));
-  $('detailOverlay').addEventListener('click', (e)=>{ if(e.target.id==='detailOverlay') $('detailOverlay').classList.remove('open'); });
+  function closeEditModal(){
+    $('editOverlay').classList.remove('open');
+    editingGroupId = null; editingHabitId = null; editPendingWeight = null;
+  }
+  document.querySelectorAll('#editWeightOptions .weight-opt').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#editWeightOptions .weight-opt').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      editPendingWeight = parseInt(btn.dataset.w,10);
+    });
+  });
+  $('editCancel').addEventListener('click', closeEditModal);
+  $('editOverlay').addEventListener('click', (e)=>{ if(e.target.id==='editOverlay') closeEditModal(); });
+  $('editSave').addEventListener('click', ()=>{
+    const sigla = $('editSiglaInput').value.trim();
+    if(!editingGroupId || !editingHabitId || !sigla || !editPendingWeight) return;
+    const g = getGroup(editingGroupId);
+    const h = g && g.habits.find(x=>x.id===editingHabitId);
+    if(!h) return;
+    h.sigla = sigla;
+    h.detalhes = $('editDetalhesInput').value.trim();
+    h.weight = editPendingWeight;
+    closeEditModal();
+    saveState();
+  });
+
+  $('editDeleteBtn').addEventListener('click', ()=>{
+    const g = getGroup(editingGroupId);
+    const h = g && g.habits.find(x=>x.id===editingHabitId);
+    if(!h) return;
+    $('deleteHabitWarning').textContent = `"${habitLabel(h)}" vai sair da sua conta, junto com o histórico dele nos gráficos. Não tem como desfazer.`;
+    $('editOverlay').classList.remove('open');
+    $('deleteHabitOverlay').classList.add('open');
+  });
+  $('deleteHabitCancel').addEventListener('click', ()=> $('deleteHabitOverlay').classList.remove('open'));
+  $('deleteHabitOverlay').addEventListener('click', (e)=>{ if(e.target.id==='deleteHabitOverlay') $('deleteHabitOverlay').classList.remove('open'); });
+  $('deleteHabitConfirm').addEventListener('click', ()=>{
+    const g = getGroup(editingGroupId);
+    if(g && editingHabitId){
+      g.habits = g.habits.filter(x=> x.id!==editingHabitId);
+    }
+    $('deleteHabitOverlay').classList.remove('open');
+    editingGroupId = null; editingHabitId = null;
+    saveState();
+  });
 
   function openGroupModal(habitPending){
     renamingGroupId = null;
